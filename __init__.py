@@ -12,7 +12,7 @@ def read_statinfo(filename):
     '''
     pass
     
-def read_supermag(filename, calc_H=False, calc_):
+def read_supermag(filename, calc_H=False, calc_dbdt=False):
 
     '''
     Read a complicated supermag file and return a dictionary of 'time'
@@ -22,6 +22,8 @@ def read_supermag(filename, calc_H=False, calc_):
     --add magnetometer list as an entry
     --Include deltaB as standard calculation
     --Make calculations of deltaB, H-components optional.
+    --Move to object-oriented
+    --Make calculations (calc_H, etc.) as object methods.
     '''
 
     import datetime as dt
@@ -79,26 +81,31 @@ def read_supermag(filename, calc_H=False, calc_):
     # Get time in seconds:
     dt = np.array([x.total_seconds() for x in np.diff(data['time'])])
     
-    # Calc H and time derivatives:
-    for s in stats:
-        # Horizontal field magnitude:
-        data[s+'_H'] = np.sqrt(data[s][0,:]**2 + data[s][1,:]**2)
+    # Calc H component (following Pulkkinen et al 2013, NON STANDARD!!!)
+    if calc_H:
+        for s in stats:
+            # Horizontal field magnitude:
+            data[s+'_H'] = np.sqrt(data[s][0,:]**2 + data[s][1,:]**2)
 
-        # Get dB_n/dt and dB_e/dt:
-        dbn, dbe = np.zeros(dt.size+1),np.zeros(dt.size+1)
+    # Calculate time derivatives if required:
+    if calc_dbdt:
+        for s in stats:
+            # Get dB_n/dt and dB_e/dt:
+            dbn, dbe = np.zeros(dt.size+1),np.zeros(dt.size+1)
 
-        # Central diff:
-        dbn[1:-1] = (data[s][0,2:]-data[s][0,:-2])/(dt[1:]+dt[:-1])
-        dbe[1:-1] = (data[s][1,2:]-data[s][1,:-2])/(dt[1:]+dt[:-1])
-        # Forward diff:
-        dbn[0]=(-data[s][0,2]+4*data[s][0,1]-3*data[s][0,0])/(dt[1]+dt[0])
-        dbe[0]=(-data[s][1,2]+4*data[s][1,1]-3*data[s][1,0])/(dt[1]+dt[0])
-        # Backward diff:
-        dbn[-1]=(3*data[s][0,-1]-4*data[s][0,-2]+data[s][0,-3])/(dt[-1]+dt[-2])
-        dbe[-1]=(3*data[s][1,-1]-4*data[s][1,-2]+data[s][1,-3])/(dt[-1]+dt[-2])
-
-        # Create |dB/dt|_h:
-        data[s+'_dH'] = np.sqrt(dbn**2 + dbe**2)
+            # Central diff:
+            dbn[1:-1] = (data[s][0,2:]-data[s][0,:-2])/(dt[1:]+dt[:-1])
+            dbe[1:-1] = (data[s][1,2:]-data[s][1,:-2])/(dt[1:]+dt[:-1])
+            # Forward diff:
+            dbn[0]=(-data[s][0,2]+4*data[s][0,1]-3*data[s][0,0])/(dt[1]+dt[0])
+            dbe[0]=(-data[s][1,2]+4*data[s][1,1]-3*data[s][1,0])/(dt[1]+dt[0])
+            # Backward diff:
+            dbn[-1]=(3*data[s][0,-1]-4*data[s][0,-2]+data[s][0,-3])/(dt[-1]+dt[-2])
+            dbe[-1]=(3*data[s][1,-1]-4*data[s][1,-2]+data[s][1,-3])/(dt[-1]+dt[-2])
+            
+            # Create |dB/dt|_h:
+            if s+'H' in stats:
+                data[s+'_dH'] = np.sqrt(dbn**2 + dbe**2)
 
 
     return data
