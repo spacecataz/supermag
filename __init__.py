@@ -1,112 +1,153 @@
 #!/usr/bin/env python
 
 '''
-This file contains tools for reading and handling Supermag data files.
+This module contains tools for reading and handling Supermag data files.
+
+Dependencies: Numpy, Scipy, and Matplotlib.
+
+TO-DO:
+--Add test suite
+--Add example code
 '''
 import numpy as np
 
 def read_statinfo(filename):
     '''
     Open and parse an "ascii" formatted file of station information as provided
-    by supermag.
+    by supermag.  
     '''
     pass
     
-def read_supermag(filename, calc_H=False, calc_dbdt=False):
-
+class SuperMag(dict):
     '''
-    Read a complicated supermag file and return a dictionary of 'time'
-    and numpy arrays of magetometer delta-Bs for each mag in the file.
+    This class is for reading, handling, and plotting the contents of a supermag-generated
+    ascii-formatted data file.  The underlying object works like a dictionary: individual 
+    stations can be accessed by referencing their 3-letter station code.
 
     TO-DO:
-    --add magnetometer list as an entry
-    --Include deltaB as standard calculation
+    --Allow user to select how to handle bad data: mask data or interpolate.
     --Make calculations of deltaB, H-components optional.
-    --Move to object-oriented
-    --Make calculations (calc_H, etc.) as object methods.
+    --Move calculations (calc_H, etc.) to object methods.    
     '''
 
-    import datetime as dt
-    from matplotlib.dates import date2num
-    from scipy.interpolate import interp1d
-    
-    f = open(filename, 'r')
+    def __init__(self, filename, *args, **kwargs):
+        '''
+        Instantiate object, read file, populate object.
+        '''
 
-    # Skip header:
-    line = f.readline()
-    while 'Selected parameters' not in line: line = f.readline()
-    head = f.readline()
-    
-    # Get station list:
-    stats  = head.split()[-1].split(',')
-    nStats = len(stats)
-
-    # Now, slurp rest of lines and count number of records.
-    f.readline() # Skip last header line.
-    lines = f.readlines()
-
-    # Get number of lines:
-    nTime = int(len(lines)/(nStats+1))
-
-    # Create container of data:
-    data = {}
-    data['time'] = np.zeros(nTime, dtype=object)
-    for s in stats: # Initialize with Bad Data Flag
-        data[s] = np.zeros( [3,nTime] )+999999.
-
-    # Read data:
-    for j in range(nTime):
-        # Get time:
-        data['time'][j] = dt.datetime.strptime(
-            ''.join(lines.pop(0).split()[:-1]), '%Y%m%d%H%M%S')
+        # Initialize as empty dict
+        super(dict, self).__init__(*args, **kwargs)
         
-        # Get values:
-        for i in range(nStats):
-            if lines[0][:3] not in stats: continue
-            parts = lines.pop(0).split()
-            data[parts[0]][:,j] = parts[1:4]
+        # Store filename within object:
+        self.filename = filename
+        
+        self._read_supermag()
+        
+    def _read_supermag(self):
+        '''
+        Read a complicated supermag file and return a dictionary of 'time'
+        and numpy arrays of magetometer delta-Bs for each mag in the file.
+        '''
 
-    # Filter bad data.
-    t = date2num(data['time'])
-    for s in stats:
-        data[s][data[s]>=999999.] = np.nan
-
-        # Interpolate over bad data:
-        for idir in range(3):
-            bad = np.isnan(data[s][idir,:])
-            good= np.logical_not(bad)
-            data[s][idir,bad] = interp1d(t[good], data[s][idir,good],
-                                         fill_value='extrapolate')(t[bad])
-            
-    # Get time in seconds:
-    dt = np.array([x.total_seconds() for x in np.diff(data['time'])])
+        import re
+        import datetime as dt
+        from matplotlib.dates import date2num
+        from scipy.interpolate import interp1d
     
-    # Calc H component (following Pulkkinen et al 2013, NON STANDARD!!!)
-    if calc_H:
-        for s in stats:
-            # Horizontal field magnitude:
-            data[s+'_H'] = np.sqrt(data[s][0,:]**2 + data[s][1,:]**2)
+        f = open(self.filename, 'r')
+        
+        # Skip header:
+        line = f.readline()
+        while 'Selected parameters' not in line: line = f.readline()
+        head = f.readline()
+    
+        # Get station list:
+        stats  = head.split()[-1].split(',')
+        nStats = len(stats)
 
-    # Calculate time derivatives if required:
-    if calc_dbdt:
-        for s in stats:
-            # Get dB_n/dt and dB_e/dt:
-            dbn, dbe = np.zeros(dt.size+1),np.zeros(dt.size+1)
+        # Save this information within object:
+        self.stations = stats
+        self.nstats   = nStats
+        
+        # Now, slurp rest of lines and count number of records.
+        f.readline() # Skip last header line.
+        lines = f.readlines()
 
-            # Central diff:
-            dbn[1:-1] = (data[s][0,2:]-data[s][0,:-2])/(dt[1:]+dt[:-1])
-            dbe[1:-1] = (data[s][1,2:]-data[s][1,:-2])/(dt[1:]+dt[:-1])
-            # Forward diff:
-            dbn[0]=(-data[s][0,2]+4*data[s][0,1]-3*data[s][0,0])/(dt[1]+dt[0])
-            dbe[0]=(-data[s][1,2]+4*data[s][1,1]-3*data[s][1,0])/(dt[1]+dt[0])
-            # Backward diff:
-            dbn[-1]=(3*data[s][0,-1]-4*data[s][0,-2]+data[s][0,-3])/(dt[-1]+dt[-2])
-            dbe[-1]=(3*data[s][1,-1]-4*data[s][1,-2]+data[s][1,-3])/(dt[-1]+dt[-2])
+        # Get number of lines.  The issue is that the number
+        # of lines does not scale directly with number of stations.
+        # Bad data entries may be omitted, leading to irregular
+        # file sizes.  As such, we need to search the hard way.
+        nTime = 0
+        for l in lines:
+            nTime += 1*bool(re.match('^\d{4}\s+\d{2}\s+\d{2}\s+', l))
+
+        # Create container arrays for all data:
+        self['time'] = np.zeros(nTime, dtype=object)
+        for s in stats: # Initialize with Bad Data Flag
+            self[s] = np.zeros( [3,nTime] )+999999.
+
+        # Read data by looping over "records": chunks of text that start
+        # with the current time and go until all stations with data for that
+        # epoch have been listed.  Not all stations will have entries for
+        # each record, so we need to account for that.
+        for j in range(nTime):
+            # Get time:
+            self['time'][j] = dt.datetime.strptime(
+                ''.join(lines.pop(0).split()[:-1]), '%Y%m%d%H%M%S')
+        
+            # Get values:
+            for i in range(nStats):
+                # If we can't find a station name, we're at the end of the
+                # current record and should move on.
+                if lines[0][:3] not in stats: continue
+                # Break the line into parts; store in correct location.
+                parts = lines.pop(0).split()
+                self[parts[0]][:,j] = parts[1:4]
+
+        # Filter bad data.
+        t = date2num(self['time'])
+        for s in stats:
+            self[s][self[s]>=999999.] = np.nan
+
+        # Interpolate over bad data: COMMENTED OUT FOR TIME BEING.
+        #for idir in range(3):
+        #    bad = np.isnan(self[s][idir,:])
+        #    good= np.logical_not(bad)
+        #    self[s][idir,bad] = interp1d(t[good], self[s][idir,good],
+        #                                 fill_value='extrapolate')(t[bad])
             
-            # Create |dB/dt|_h:
-            if s+'H' in stats:
-                data[s+'_dH'] = np.sqrt(dbn**2 + dbe**2)
+        # Get time in seconds:
+        dt = np.array([x.total_seconds() for x in np.diff(self['time'])])
+    
+        # Calc H component (following Pulkkinen et al 2013, NON STANDARD!!!)
+        # OFF BY DEFAULT
+        calc_H=False
+        calc_dbdt=False 
+        if calc_H:
+            for s in stats:
+                # Horizontal field magnitude:
+                self[s+'_H'] = np.sqrt(self[s][0,:]**2 + self[s][1,:]**2)
 
+        # Calculate time derivatives if required:
+        if calc_dbdt:
+            for s in stats:
+                # Get dB_n/dt and dB_e/dt:
+                dbn, dbe = np.zeros(dt.size+1),np.zeros(dt.size+1)
 
-    return data
+                # Central diff:
+                dbn[1:-1] = (self[s][0,2:]-self[s][0,:-2])/(dt[1:]+dt[:-1])
+                dbe[1:-1] = (self[s][1,2:]-self[s][1,:-2])/(dt[1:]+dt[:-1])
+                # Forward diff:
+                dbn[0]=(-self[s][0,2]+4*self[s][0,1]-3*self[s][0,0])/(dt[1]+dt[0])
+                dbe[0]=(-self[s][1,2]+4*self[s][1,1]-3*self[s][1,0])/(dt[1]+dt[0])
+                # Backward diff:
+                dbn[-1]=(3*self[s][0,-1]-4*self[s][0,-2]+self[s][0,-3])/(dt[-1]+dt[-2])
+                dbe[-1]=(3*self[s][1,-1]-4*self[s][1,-2]+self[s][1,-3])/(dt[-1]+dt[-2])
+                
+                # Create |dB/dt|_h:
+                if s+'H' in stats:
+                    self[s+'_dH'] = np.sqrt(dbn**2 + dbe**2)
+                    
+        # Return true on success:
+        return True
 
