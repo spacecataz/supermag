@@ -58,7 +58,10 @@ class SuperMag(dict):
         
         # Skip header:
         line = f.readline()
-        while 'Selected parameters' not in line: line = f.readline()
+        nSkip = 1
+        while 'Selected parameters' not in line:
+            nSkip+=1
+            line = f.readline()
         head = f.readline()
     
         # Get station list:
@@ -72,7 +75,8 @@ class SuperMag(dict):
         # Now, slurp rest of lines and count number of records.
         f.readline() # Skip last header line.
         lines = f.readlines()
-
+        f.close()
+        
         # Get number of lines.  The issue is that the number
         # of lines does not scale directly with number of stations.
         # Bad data entries may be omitted, leading to irregular
@@ -86,24 +90,32 @@ class SuperMag(dict):
         for s in stats: # Initialize with Bad Data Flag
             self[s] = np.zeros( [3,nTime] )+999999.
 
+        # Re-open file, skip header, and work line by line.
+        f = open(self.filename, 'r')
+        for i in range(nSkip+2):
+            f.readline()
+        
         # Read data by looping over "records": chunks of text that start
         # with the current time and go until all stations with data for that
         # epoch have been listed.  Not all stations will have entries for
         # each record, so we need to account for that.
+        line = f.readline()
         for j in range(nTime):
             # Get time:
             self['time'][j] = dt.datetime.strptime(
-                ''.join(lines.pop(0).split()[:-1]), '%Y%m%d%H%M%S')
+                ''.join(line.split()[:-1]), '%Y%m%d%H%M%S')
         
-            # Get values:
-            for i in range(nStats):
-                # If we can't find a station name, we're at the end of the
-                # current record and should move on.
-                if lines[0][:3] not in stats: continue
-                # Break the line into parts; store in correct location.
-                parts = lines.pop(0).split()
+            # Get values.  Loop through lines until we are on a line
+            # without a station name. 
+            line = f.readline()
+            while line[:3] in stats:
+                parts = line.split()
                 self[parts[0]][:,j] = parts[1:4]
+                line = f.readline()
 
+        # close our file.
+        f.close()
+        
         # Filter bad data.
         t = date2num(self['time'])
         for s in stats:
