@@ -88,7 +88,9 @@ class SuperMag(dict):
         # Create container arrays for all data:
         self['time'] = np.zeros(nTime, dtype=object)
         for s in stats: # Initialize with Bad Data Flag
-            self[s] = np.zeros( [3,nTime] )+999999.
+            self[s] = {}  # Start with empty dictionary
+            for x in ['bx','by','bz']:
+                self[s][x] = np.zeros( [nTime] )+999999.
 
         # Re-open file, skip header, and work line by line.
         f = open(self.filename, 'r')
@@ -110,7 +112,9 @@ class SuperMag(dict):
             line = f.readline()
             while line[:3] in stats:
                 parts = line.split()
-                self[parts[0]][:,j] = parts[1:4]
+                self[parts[0]]['bx'][j] = parts[1]
+                self[parts[0]]['by'][j] = parts[2]
+                self[parts[0]]['bz'][j] = parts[3]
                 line = f.readline()
 
         # close our file.
@@ -119,7 +123,8 @@ class SuperMag(dict):
         # Filter bad data.
         t = date2num(self['time'])
         for s in stats:
-            self[s][self[s]>=999999.] = np.nan
+            for x in ['bx','by','bz']:
+                self[s][x][self[s][x]>=999999.] = np.nan
 
         # Interpolate over bad data: COMMENTED OUT FOR TIME BEING.
         #for idir in range(3):
@@ -163,3 +168,21 @@ class SuperMag(dict):
         # Return true on success:
         return True
 
+
+    def calc_btotal(self):
+        '''
+        Calculate the magnitude of the perturbation for each magnetometer.
+        Save as self['station name']['b'].
+        '''
+
+        # Loop through each magnetometer in the object.
+        # Skip the time array.
+        for mag in self.keys():
+            if mag=='time': continue
+            # Total perturbation is just the pythagorean sum!
+            self[mag]['b'] = np.sqrt(
+                self[mag]['bx']**2+
+                self[mag]['by']**2+
+                self[mag]['bz']**2)
+
+        return True
