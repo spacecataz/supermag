@@ -11,13 +11,69 @@ TO-DO:
 '''
 import numpy as np
 
-def read_statinfo(filename):
+# Set install directory:
+install_dir = '/'.join(__loader__.path.split('/')[:-1])+'/'
+
+def _convert_entry(value):
+    '''
+    Helper function for reading and loading station info file.
+    Looks at a value from the file, converts strings to floats or 
+    removes quotes from strings.
+    '''
+
+    if '"' in value:
+        return value.strip('"')
+    else:
+        return float(value)
+    
+def read_statinfo(filename='default'):
     '''
     Open and parse an "ascii" formatted file of station information as provided
-    by supermag.  
+    by supermag.  All information saved as a dictionary where each key is 
+    the station name.
+
+    *filename* sets the location of the information file.  Default behavior
+    is to use the file contained with the package.
     '''
-    pass
+
+    # Set file name path:
+    if filename == 'default':
+        filename=install_dir+'station_info.txt'
+
+    # Open file:
+    f = open(filename,'r')
     
+    # Skip header:
+    trash = ''
+    while '===' not in trash:
+        trash = f.readline()
+
+    # Load data header:
+    trash = f.readline()
+    header = trash.lower().split()
+        
+    # Read rest of lines; close file:
+    lines = f.readlines()
+    f.close()
+
+    # Create empty data container to store station info:
+    data = {}
+
+    # Read rest of data:
+    for l in lines:
+        # Split on tabs:
+        parts = l.split('\t')
+        # Some lines have double-tabs which give blank entries in parts:
+        while '' in parts: parts.remove('')
+
+        # Create new entry within main data structure for
+        # each station:
+        data[parts[0]] = {}
+        for key, value in zip( header[1:], parts[1:] ):
+            data[parts[0]][key] = _convert_entry(value)
+
+    return data
+            
 class SuperMag(dict):
     '''
     This class is for reading, handling, and plotting the contents of a supermag-generated
@@ -30,7 +86,7 @@ class SuperMag(dict):
     --Move calculations (calc_H, etc.) to object methods.    
     '''
 
-    def __init__(self, filename, *args, **kwargs):
+    def __init__(self, filename, load_info=False, *args, **kwargs):
         '''
         Instantiate object, read file, populate object.
         '''
@@ -40,8 +96,18 @@ class SuperMag(dict):
         
         # Store filename within object:
         self.filename = filename
-        
+
+        # Read data file:
         self._read_supermag()
+
+        # Add station info to each station if required:
+        if load_info:
+            info = read_statinfo()
+            for s in self:
+                if s in info:
+                    self[s]['geolon'] = info[s]['geolon']
+                    self[s]['geolat'] = info[s]['geolat']
+                    self[s]['name']   = info[s]['station-name']
         
     def _read_supermag(self):
         '''
