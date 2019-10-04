@@ -80,13 +80,23 @@ class SuperMag(dict):
     ascii-formatted data file.  The underlying object works like a dictionary: individual 
     stations can be accessed by referencing their 3-letter station code.
 
+    Parameters
+    ==========
+    filename : string
+        The name of the SuperMag file to read and load into the data structure.
+
+    Other Parameters
+    ================
+    load_info : bool
+        Load the station info (name, lat, lon, etc.) from a separate file.
+
     TO-DO:
     --Allow user to select how to handle bad data: mask data or interpolate.
     --Make calculations of deltaB, H-components optional.
     --Move calculations (calc_H, etc.) to object methods.    
     '''
 
-    def __init__(self, filename, load_info=False, *args, **kwargs):
+    def __init__(self, filename, load_info=True, *args, **kwargs):
         '''
         Instantiate object, read file, populate object.
         '''
