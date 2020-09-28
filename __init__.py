@@ -14,6 +14,9 @@ import numpy as np
 # Set install directory:
 install_dir = '/'.join(__loader__.path.split('/')[:-1])+'/'
 
+# Create a map of position of values in file based on file version:
+varmap = {2:1, 5:9}
+
 def _convert_entry(value):
     '''
     Helper function for reading and loading station info file.
@@ -133,24 +136,34 @@ class SuperMag(dict):
     
         f = open(self.filename, 'r')
         
-        # Skip header:
-        line = f.readline()
+        # Skip header: jump to point where file lists stations.
+        # Find format version, too.
+        line = f.readline() # Read first line.
         nSkip = 1
-        while 'Selected parameters' not in line:
+        while 'Selected' not in line:
             nSkip+=1
+            if 'Revision' in line:
+                self.vers = int(line.split(':')[-1])
             line = f.readline()
-        head = f.readline()
-    
-        # Get station list:
+
+        # Grab line with station list in it:
+        head = line if 'Stations' in line else f.readline()
+
+        # Parse station list:
         stats  = head.split()[-1].split(',')
         nStats = len(stats)
 
         # Save this information within object:
         self.stations = stats
         self.nstats   = nStats
+
+        # Skip remainder of header; count skipped lines:
+        while '==' not in line and 'Parameters' not in line:
+            line = f.readline()
+            nSkip+=1
+
         
         # Now, slurp rest of lines and count number of records.
-        f.readline() # Skip last header line.
         lines = f.readlines()
         f.close()
         
@@ -171,9 +184,9 @@ class SuperMag(dict):
 
         # Re-open file, skip header, and work line by line.
         f = open(self.filename, 'r')
-        for i in range(nSkip+2):
+        for i in range(nSkip+1*(self.vers==2)):
             f.readline()
-        
+
         # Read data by looping over "records": chunks of text that start
         # with the current time and go until all stations with data for that
         # epoch have been listed.  Not all stations will have entries for
@@ -182,16 +195,16 @@ class SuperMag(dict):
         for j in range(nTime):
             # Get time:
             self['time'][j] = dt.datetime.strptime(
-                ''.join(line.split()[:-1]), '%Y%m%d%H%M%S')
+                ''.join(line.split()[:6]), '%Y%m%d%H%M%S')
         
             # Get values.  Loop through lines until we are on a line
             # without a station name. 
             line = f.readline()
             while line[:3] in stats:
                 parts = line.split()
-                self[parts[0]]['bx'][j] = parts[1]
-                self[parts[0]]['by'][j] = parts[2]
-                self[parts[0]]['bz'][j] = parts[3]
+                self[parts[0]]['bx'][j] = parts[varmap[self.vers]  ]
+                self[parts[0]]['by'][j] = parts[varmap[self.vers]+1]
+                self[parts[0]]['bz'][j] = parts[varmap[self.vers]+2]
                 line = f.readline()
 
         # close our file.
