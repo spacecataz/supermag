@@ -76,9 +76,10 @@ def read_statinfo(filename='default'):
             
 class SuperMag(dict):
     '''
-    This class is for reading, handling, and plotting the contents of a supermag-generated
-    ascii-formatted data file.  The underlying object works like a dictionary: individual 
-    stations can be accessed by referencing their 3-letter station code.
+    This class is for reading, handling, and plotting the contents of a 
+    supermag-generated ascii-formatted data file.  The underlying object works 
+    like a dictionary: individual stations can be accessed by referencing 
+    their 3-letter station code.
 
     Parameters
     ==========
