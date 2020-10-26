@@ -114,15 +114,23 @@ class SuperMag(dict):
         # Read data file:
         self._read_supermag()
 
-        # Add station info to each station if required:
+        # Add station info to each station if required.
+        # Calculate local time for each station:
         if load_info:
+            # Calculate hours to use for local time determination.
+            hours = np.array(
+                [x.hour+x.minute/60.+x.second/3600 for x in self['time']])
+            
             info = read_statinfo()
             for s in self:
                 if s in info:
                     self[s]['geolon'] = info[s]['geolon']
                     self[s]['geolat'] = info[s]['geolat']
                     self[s]['name']   = info[s]['station-name']
-        
+                    # Calculate local time, do not let it go over 24 hours.
+                    self[s]['lt'] = hours+info[s]['geolon']*24/360
+                    self[s]['lt'][self[s]['lt']>=24]-=24
+                    
     def _read_supermag(self):
         '''
         Read a complicated supermag file and return a dictionary of 'time'
