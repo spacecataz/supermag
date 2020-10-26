@@ -93,6 +93,19 @@ class SuperMag(dict):
     ================
     load_info : bool
         Load the station info (name, lat, lon, etc.) from a separate file.
+        If station info is loaded, each station's local time is saved as
+        `self['station']['lt']`.
+
+    Example
+    =======
+    >>> # From one directory above the repository location:
+    >>> x = supermag.SuperMag('supermag/data/example_v5.txt')
+    >>> print(x.stations)
+    >>> x['ALE'].keys()
+
+    ['ALE', 'AND', 'BOR', 'BEL', 'BDV', 'BMT', 'BNG', 'ASP']
+    dict_keys(['time', 'ALE', 'AND', 'BOR', 'BEL', 'BDV', 'BMT', 'BNG', 'ASP'])
+
 
     TO-DO:
     --Allow user to select how to handle bad data: mask data or interpolate.
