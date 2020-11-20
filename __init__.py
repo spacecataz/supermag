@@ -98,9 +98,9 @@ class IndexFile(dict):
     >>> # From one directory above the repository location:
     >>>  x = supermag.IndexFile('./supermag/data/example_index.txt')
     >>> x.keys()
+    >>> x['SMU']
     dict_keys(['time', 'SML', 'SMU'])
 
-    >>> x['SMU']
     array([107., 113., 116., ..., 157., 156., 158.])
 
     '''
