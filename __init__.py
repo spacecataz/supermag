@@ -9,6 +9,8 @@ TO-DO:
 --Add test suite
 --Add example code
 '''
+import re
+import datetime as dt
 import numpy as np
 
 # Set install directory:
@@ -76,6 +78,70 @@ def read_statinfo(filename='default'):
             data[parts[0]][key] = _convert_entry(value)
 
     return data
+
+class IndexFile(dict):
+    '''
+    This class is for reading and handling the geomagnetic index files from
+    the SuperMag website.  This class inherits from, and therefore works 
+    similar to, dictionary objects that use a key-value pair.
+
+    Parameters
+    ==========
+    filename : string
+        The name of the SuperMag index file to read and load.
+
+    Other Parameters
+    ================
+
+    Example
+    =======
+    >>> # From one directory above the repository location:
+    >>>  x = supermag.IndexFile('./supermag/data/example_index.txt')
+    >>> x.keys()
+    dict_keys(['time', 'SML', 'SMU'])
+
+    >>> x['SMU']
+    array([107., 113., 116., ..., 157., 156., 158.])
+
+    '''
+    def __init__(self, filename, load_info=True, *args, **kwargs):
+        '''
+        Instantiate object, read file, populate object.
+        '''
+
+        # Initialize as empty dict
+        super(dict, self).__init__(*args, **kwargs)
+        
+        # Store filename within object:
+        self.filename = filename
+
+        # Read data file:
+        self._read_indexfile()
+
+    def _read_indexfile(self):
+
+        # Open, read, and close file:
+        with open(self.filename, 'r') as f:
+            # Skip bulk of header.
+            while '==' not in f.readline(): continue
+            head  = f.readline()  # Read varnames & units
+            lines = f.readlines() # Slurp rest of data.
+
+        # Parse variable names besides time:
+        varnames = [x[0] for x in re.findall('\<(.+?)\s*(\(\w+\))?\>',head)[6:]]
+
+        # Build containers:
+        nLines = len(lines)
+        self['time'] = np.zeros(nLines, dtype=object)
+        for v in varnames: self[v] = np.zeros(nLines)
+
+        # Parse data and fill container:
+        for i,l in enumerate(lines):
+            parts = l.split()
+            self['time'][i] = dt.datetime.strptime(
+                ' '.join(parts[:6]), '%Y %m %d %H %M %S')
+            for v, x in zip(varnames,parts[6:]):
+                self[v][i] = x
             
 class SuperMag(dict):
     '''
@@ -150,8 +216,6 @@ class SuperMag(dict):
         and numpy arrays of magetometer delta-Bs for each mag in the file.
         '''
 
-        import re
-        import datetime as dt
         from matplotlib.dates import date2num
         from scipy.interpolate import interp1d
     
