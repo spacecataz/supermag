@@ -9,6 +9,7 @@ TO-DO:
 --Add test suite
 --Add example code
 '''
+
 import re
 import datetime as dt
 import numpy as np
@@ -264,7 +265,7 @@ class SuperMag(dict):
         self['time'] = np.zeros(nTime, dtype=object)
         for s in stats: # Initialize with Bad Data Flag
             self[s] = {}  # Start with empty dictionary
-            for x in ['bx','by','bz']:
+            for x in ['bx','by','bz','bx_geo', 'by_geo','bz_geo']:
                 self[s][x] = np.zeros( [nTime] )+999999.
 
         # Re-open file, skip header, and work line by line.
@@ -290,6 +291,9 @@ class SuperMag(dict):
                 self[parts[0]]['bx'][j] = parts[varmap[self.vers]  ]
                 self[parts[0]]['by'][j] = parts[varmap[self.vers]+1]
                 self[parts[0]]['bz'][j] = parts[varmap[self.vers]+2]
+                self[parts[0]]['bx_geo'][j] = parts[varmap[self.vers]+3]
+                self[parts[0]]['by_geo'][j] = parts[varmap[self.vers]+4]
+                self[parts[0]]['bz_geo'][j] = parts[varmap[self.vers]+5]
                 line = f.readline()
 
         # close our file.
@@ -309,7 +313,7 @@ class SuperMag(dict):
         #                                 fill_value='extrapolate')(t[bad])
             
         # Get time in seconds:
-        dt = np.array([x.total_seconds() for x in np.diff(self['time'])])
+        dtime = np.array([x.total_seconds() for x in np.diff(self['time'])])
     
         # Calc H component (following Pulkkinen et al 2013, NON STANDARD!!!)
         # OFF BY DEFAULT
@@ -324,17 +328,17 @@ class SuperMag(dict):
         if calc_dbdt:
             for s in stats:
                 # Get dB_n/dt and dB_e/dt:
-                dbn, dbe = np.zeros(dt.size+1),np.zeros(dt.size+1)
+                dbn, dbe = np.zeros(dtime.size+1),np.zeros(dtime.size+1)
 
                 # Central diff:
-                dbn[1:-1] = (self[s][0,2:]-self[s][0,:-2])/(dt[1:]+dt[:-1])
-                dbe[1:-1] = (self[s][1,2:]-self[s][1,:-2])/(dt[1:]+dt[:-1])
+                dbn[1:-1] = (self[s][0,2:]-self[s][0,:-2])/(dtime[1:]+dtime[:-1])
+                dbe[1:-1] = (self[s][1,2:]-self[s][1,:-2])/(dtime[1:]+dtime[:-1])
                 # Forward diff:
-                dbn[0]=(-self[s][0,2]+4*self[s][0,1]-3*self[s][0,0])/(dt[1]+dt[0])
-                dbe[0]=(-self[s][1,2]+4*self[s][1,1]-3*self[s][1,0])/(dt[1]+dt[0])
+                dbn[0]=(-self[s][0,2]+4*self[s][0,1]-3*self[s][0,0])/(dtime[1]+dtime[0])
+                dbe[0]=(-self[s][1,2]+4*self[s][1,1]-3*self[s][1,0])/(dtime[1]+dtime[0])
                 # Backward diff:
-                dbn[-1]=(3*self[s][0,-1]-4*self[s][0,-2]+self[s][0,-3])/(dt[-1]+dt[-2])
-                dbe[-1]=(3*self[s][1,-1]-4*self[s][1,-2]+self[s][1,-3])/(dt[-1]+dt[-2])
+                dbn[-1]=(3*self[s][0,-1]-4*self[s][0,-2]+self[s][0,-3])/(dtime[-1]+dtime[-2])
+                dbe[-1]=(3*self[s][1,-1]-4*self[s][1,-2]+self[s][1,-3])/(dtime[-1]+dtime[-2])
                 
                 # Create |dB/dt|_h:
                 if s+'H' in stats:
