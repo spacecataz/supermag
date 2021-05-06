@@ -17,8 +17,9 @@ import numpy as np
 # Set install directory:
 install_dir = '/'.join(__loader__.path.split('/')[:-1])+'/'
 
-# Create a map of position of values in file based on file version:
-varmap = {2:1, 5:9}
+# Create a map of position of values in file based on file version.
+# This skips perfunctory values that we don't use.
+varmap = {2:1, 5:-6}
 
 def _convert_entry(value):
     '''
