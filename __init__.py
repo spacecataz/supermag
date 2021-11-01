@@ -12,14 +12,18 @@ TO-DO:
 
 import re
 import datetime as dt
+import warnings
 import numpy as np
 
 # Set install directory:
 install_dir = '/'.join(__loader__.path.split('/')[:-1])+'/'
 
 # Create a map of position of values in file based on file version.
+# Maps Version Number :to: Index of First Variable
 # This skips perfunctory values that we don't use.
-varmap = {2:1, 5:-6}
+# Defaults to latest version if revision is unrecognized.
+varmap = {2:1, 5:-6, 6:-6}
+varmap['unrecognized'] = varmap[max(varmap.keys())]
 
 def _convert_entry(value):
     '''
@@ -222,6 +226,9 @@ class SuperMag(dict):
         from scipy.interpolate import interp1d
     
         f = open(self.filename, 'r')
+
+        # Set default revision:
+        self.vers = 'unrecognized'
         
         # Skip header: jump to point where file lists stations.
         # Find format version, too.
@@ -233,6 +240,14 @@ class SuperMag(dict):
                 self.vers = int(line.split(':')[-1])
             line = f.readline()
 
+        # Warn if unrecognized revision:
+        if self.vers == 'unrecognized':
+            warnings.warn("Unrecognized file format revision.  "+
+                          "Check validity of file read.")
+            
+        # From the revision, get the index offset to read variables:
+        iOff = varmap[self.vers]
+            
         # Grab line with station list in it:
         head = line if 'Stations' in line else f.readline()
 
@@ -289,12 +304,12 @@ class SuperMag(dict):
             line = f.readline()
             while line[:3] in stats:
                 parts = line.split()
-                self[parts[0]]['bx'][j] = parts[varmap[self.vers]  ]
-                self[parts[0]]['by'][j] = parts[varmap[self.vers]+1]
-                self[parts[0]]['bz'][j] = parts[varmap[self.vers]+2]
-                self[parts[0]]['bx_geo'][j] = parts[varmap[self.vers]+3]
-                self[parts[0]]['by_geo'][j] = parts[varmap[self.vers]+4]
-                self[parts[0]]['bz_geo'][j] = parts[varmap[self.vers]+5]
+                self[parts[0]]['bx'][j] = parts[iOff  ]
+                self[parts[0]]['by'][j] = parts[iOff+1]
+                self[parts[0]]['bz'][j] = parts[iOff+2]
+                self[parts[0]]['bx_geo'][j] = parts[iOff+3]
+                self[parts[0]]['by_geo'][j] = parts[iOff+4]
+                self[parts[0]]['bz_geo'][j] = parts[iOff+5]
                 line = f.readline()
 
         # close our file.

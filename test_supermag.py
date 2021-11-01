@@ -61,6 +61,32 @@ class TestSuperMag(unittest.TestCase):
             # Station BOR:
             self.assertEqual(data['BOR'][x][ 0], self.knownBOR[x][ 0])
             self.assertEqual(data['BOR'][x][-1], self.knownBOR[x][-1])
-            
+
+
+    def testUnrec(self):
+        '''Test that unrecognized version number still works and warns.'''
+
+        # Check that we issue warning:
+        self.assertWarns(Warning, supermag.SuperMag, datadir+'example_novers.txt')
+
+        data = supermag.SuperMag(datadir+'example_novers.txt')
+
+        # Test file version detection:
+        self.assertEqual(data.vers, 'unrecognized')
+        
+        # Test first and last time entries:
+        self.assertEqual(data['time'][0],  self.knownTime[0] )
+        self.assertEqual(data['time'][-1], self.knownTime[-1])
+        
+        # Test against known magnetic field values:
+        for x in ['bx','by','bz']:
+            # Station ALE:
+            self.assertEqual(data['ALE'][x][ 0], self.knownALE[x][ 0])
+            self.assertEqual(data['ALE'][x][-1], self.knownALE[x][-1])
+            # Station BOR:
+            self.assertEqual(data['BOR'][x][ 0], self.knownBOR[x][ 0])
+            self.assertEqual(data['BOR'][x][-1], self.knownBOR[x][-1])
+
+        
 if __name__=='__main__':
     unittest.main()
