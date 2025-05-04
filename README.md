@@ -64,6 +64,7 @@ data2 = readJSONheadedASCII('./supermag_indexes.txt')
 
 | Variable(s) | Description |
 |-------------|-------------|
-| tval, time  |
-tval,SME,SML,SMLmlat,SMLmlt,SMLglat,SMLglon'.split(',') + \
-    'SMU,SMUmlat,SMUmlt,SMUglat,SMUglon,smr
+| tval, time  | Time in both Modern Julian Day and Datetime format |
+| SME,SML,SMU | SuperMAG electrojet indexes |
+| SM[U/L]mlt/mlat/glon/glat | The magnetic/geographic coordinates of the station contributing to either SMU or SML as a function of time.|
+| smr | SuperMAG ring current index |
