@@ -77,3 +77,69 @@ def fetch_index(start, end, logon):
     data = sm_to_dm(json.loads(resp.read()), index_vars)
 
     return data
+
+
+def fetch_mag(start, end, logon, station, baseline='all'):
+    '''
+    Fetch magnetometer data for a single statoin.
+
+    Parameters
+    ----------
+    start, end : datetime or Ticktock
+        Start and stop time of the interval to fetch.
+    logon : str
+        SuperMAG user name to access data.
+    station : str
+        IAGA code for station to fetch, e.g., EYR
+    baseline : str, defaults to 'all'
+        Select baseline subtraction: 'all' for annual and diurnal, 'yearly'
+        for annual only, 'none' for no baseline subtraction.
+
+    Returns
+    -------
+
+    Examples
+    --------
+    '''
+
+    # Upper that case:
+    station = station.upper()
+
+    # Get extent in seconds:
+    extent = int((end - start).total_seconds())
+
+    # Build url for fetching:
+    url = f"{baseurl}data-api.php?fmt=json&python&nohead&" + \
+          f"start={start:%Y-%m-%dT%H:%M}&extent={extent:012d}&" + \
+          f"logon={logon}&all&station={station}"
+
+    # Request data.
+    resp = urllib.request.urlopen(url)
+    rawlines = json.loads(resp.read())
+
+    # Count points:
+    npts = len(rawlines)
+
+    # Create container:
+    data = SpaceData(attrs={'IAGA': rawlines[0]['iaga']})
+
+    # Pre-populate arrays:
+    data['nez'] = dmarray(np.zeros([npts, 3]), {'units': 'nT'})
+    data['geo'] = dmarray(np.zeros([npts, 3]), {'units': 'nT'})
+    data['tval'] = dmarray(np.zeros(npts), {'units': 's'})
+
+    # Parse and sort:
+    for i, line in enumerate(rawlines):
+        data['tval'][i] = line['tval']
+        data['nez'][i, :] = [line['N']['nez'],
+                             line['E']['nez'],
+                             line['Z']['nez']]
+        data['geo'][i, :] = [line['N']['geo'],
+                             line['E']['geo'],
+                             line['Z']['geo']]
+
+    # Create time vector.
+    data['time'] = num2date(data['tval']/(3600*24))
+
+    return data
+
