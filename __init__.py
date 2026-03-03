@@ -331,46 +331,56 @@ class SuperMag(dict):
         #     self[s][idir,bad] = interp1d(t[good], self[s][idir,good],
         #                                  fill_value='extrapolate')(t[bad])
 
+        # Return true on success:
+        return True
+
+    def calc_h(self):
+        '''
+        For each station, calculate the H-component (total horizontal field
+        strength) as the magnitude of the X (magnetic north) and Y (east-west)
+        components.
+        '''
+
+        for s in self.stations:
+            # Horizontal field magnitude:
+            self[s]['bh'] = np.sqrt(self[s]['bx'][:]**2 + self[s]['by'][:]**2)
+
+    def calc_dbdt(self):
+        '''
+        Calculate dB/dt using central differencing. This assumes no missing
+        data and uniform time spacing. Use with caution.
+        '''
+
         # Get time in seconds:
         dtime = np.array([x.total_seconds() for x in np.diff(self['time'])])
 
-        # Calc H component (following Pulkkinen et al 2013, NON STANDARD!!!)
-        # OFF BY DEFAULT
-        calc_H = False
-        calc_dbdt = False
-        if calc_H:
-            for s in stats:
-                # Horizontal field magnitude:
-                self[s+'_H'] = np.sqrt(self[s][0, :]**2 + self[s][1, :]**2)
+        for s in self.stations:
+            # Get dB_n/dt and dB_e/dt:
+            mag = self[s]
+            dbn, dbe = np.zeros(dtime.size+1), np.zeros(dtime.size+1)
 
-        # Calculate time derivatives if required:
-        if calc_dbdt:
-            for s in stats:
-                # Get dB_n/dt and dB_e/dt:
-                dbn, dbe = np.zeros(dtime.size+1), np.zeros(dtime.size+1)
+            # Central diff:
+            dbn[1:-1] = (mag['bx'][2:]-mag['bx'][:-2]) /\
+                (dtime[1:]+dtime[:-1])
+            dbe[1:-1] = (mag['by'][2:]-mag['by'][:-2]) /\
+                (dtime[1:]+dtime[:-1])
+            # Forward diff:
+            dbn[0] = (-mag['bx'][2]+4*mag['bx'][1]-3*mag['bx'][0]) /\
+                (dtime[1]+dtime[0])
+            dbe[0] = (-mag['by'][2]+4*mag['by'][1]-3*mag['by'][0]) /\
+                (dtime[1]+dtime[0])
+            # Backward diff:
+            dbn[-1] = (3*mag['bx'][-1]-4*mag['bx'][-2]+mag['bx'][-3]) /\
+                (dtime[-1]+dtime[-2])
+            dbe[-1] = (3*mag['by'][-1]-4*mag['by'][-2]+mag['by'][-3]) /\
+                (dtime[-1]+dtime[-2])
 
-                # Central diff:
-                dbn[1:-1] = (self[s][0, 2:]-self[s][0, :-2]) /\
-                    (dtime[1:]+dtime[:-1])
-                dbe[1:-1] = (self[s][1, 2:]-self[s][1, :-2]) /\
-                    (dtime[1:]+dtime[:-1])
-                # Forward diff:
-                dbn[0] = (-self[s][0, 2]+4*self[s][0, 1]-3*self[s][0, 0]) /\
-                    (dtime[1]+dtime[0])
-                dbe[0] = (-self[s][1, 2]+4*self[s][1, 1]-3*self[s][1, 0]) /\
-                    (dtime[1]+dtime[0])
-                # Backward diff:
-                dbn[-1] = (3*self[s][0, -1]-4*self[s][0, -2]+self[s][0, -3]) /\
-                    (dtime[-1]+dtime[-2])
-                dbe[-1] = (3*self[s][1, -1]-4*self[s][1, -2]+self[s][1, -3]) /\
-                    (dtime[-1]+dtime[-2])
+            # Store results:
+            mag['dbxdt'] = dbn
+            mag['dbydt'] = dbe
 
-                # Create |dB/dt|_h:
-                if s+'H' in stats:
-                    self[s+'_dH'] = np.sqrt(dbn**2 + dbe**2)
-
-        # Return true on success:
-        return True
+            # Create |dB/dt|_h:
+            mag['dbhdt'] = np.sqrt(dbn**2 + dbe**2)
 
     def calc_btotal(self):
         '''
