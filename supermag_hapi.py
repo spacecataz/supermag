@@ -56,9 +56,15 @@ def fromHAPI(server, dataset, variables, tstart, tend):
     result = SpaceData()
 
 
-def fetch_hapi_mags():
+def fetch_hapi_mags(maglist, tstart, tend):
     '''
 
     '''
 
-    pass
+    # Examples from CDAWeb:
+    swedat, magdat = 'AC_H0_SWE', 'AC_H0_MFI'
+    swevar = 'Np,Tpr,alpha_ratio,V_GSM'
+    magvar = 'BGSM,SC_pos_GSM'
+
+    t1, t2 = tstart.isoformat(), tend.isoformat()
+    swe, meta = hapi(hapiserv, dataset, parameters, t1, t2)
