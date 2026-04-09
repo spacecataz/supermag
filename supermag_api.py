@@ -115,7 +115,11 @@ def fetch_mag(start, end, logon, station, baseline='all'):
 
     # Request data.
     resp = urllib.request.urlopen(url)
-    rawlines = json.loads(resp.read())
+    raw = resp.read()
+    if not raw:
+        raise ValueError('No data available for this time period.')
+
+    rawlines = json.loads(raw)
 
     # Count points:
     npts = len(rawlines)
@@ -139,7 +143,7 @@ def fetch_mag(start, end, logon, station, baseline='all'):
                              line['Z']['geo']]
 
     # Create time vector.
-    data['time'] = num2date(data['tval']/(3600*24))
+    data['time'] = np.array(num2date(data['tval']/(3600*24)))
 
     return data
 
