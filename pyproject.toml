@@ -3,6 +3,7 @@ name = "supermag"
 version = "0.1"
 description = "An interface for reading, fetching, and manipulating SuperMAG data sets."
 readme = "README.md"
+license = { "file" = "LICENSE" }
 requires-python = ">=3.7"
 authors = [{ "name" = "Daniel Welling", "email" = "dwelling@umich.edu" }]
 
