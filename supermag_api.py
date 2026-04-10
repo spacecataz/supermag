@@ -74,7 +74,8 @@ def fetch_index(start, end, logon):
     resp = urllib.request.urlopen(url)
 
     # Parse data.
-    data = sm_to_dm(json.loads(resp.read()), index_vars)
+    raw = resp.read()
+    data = sm_to_dm(json.loads(raw), index_vars)
 
     return data
 
