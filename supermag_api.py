@@ -77,12 +77,23 @@ def fetch_index(start, end, logon):
     raw = resp.read()
     data = sm_to_dm(json.loads(raw), index_vars)
 
+    # Convert to numpy arrays:
+    for k in data.keys():
+        data[k] = np.array(data[k])
+
+    # Check for and remove "zero-time" entries.
+    mask = data['time'] == 0
+    if mask.sum() > 0:
+        data['time'] = data['time'][mask]
+        for v in index_vars:
+            data[v] = data[v][mask]
+
     return data
 
 
 def fetch_mag(start, end, logon, station, baseline='all'):
     '''
-    Fetch magnetometer data for a single statoin.
+    Fetch magnetometer data for a single station.
 
     Parameters
     ----------
